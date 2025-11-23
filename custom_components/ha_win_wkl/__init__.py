@@ -18,11 +18,9 @@ PLATFORMS = [
     "switch",
 ]
 
-
 async def async_setup(hass: core.HomeAssistant, config: dict):
     hass.data.setdefault(DOMAIN, {})
     return True
-
 
 async def async_setup_entry(hass, entry):
     _LOGGER.debug("Setting up My Device component")
@@ -31,7 +29,8 @@ async def async_setup_entry(hass, entry):
     mac = entry.data.get('mac')
     account = entry.data.get('account')
 
-    # result = subprocess.run(["ping", "-n", "1", "-w", "1000", ip], capture_output=True, text=True)
+    # 使用entry_id作为key，避免IP冲突
+    entry_id = entry.entry_id
 
     if ping_ip(ip):
         status = "0"
@@ -46,24 +45,23 @@ async def async_setup_entry(hass, entry):
     if not coordinator.last_update_success:
         raise ConfigEntryNotReady
 
-    hass.data[DOMAIN][ip] = coordinator
+    # 使用entry_id作为key存储coordinator
+    if DOMAIN not in hass.data:
+        hass.data[DOMAIN] = {}
+    hass.data[DOMAIN][entry_id] = coordinator
 
     _LOGGER.info(f"创建设备完成IP: {ip}, Name:{name}, Mac:{mac}, Status: {status}")
 
-    # for component in PLATFORMS:
-    #     hass.async_create_task(
-    #         hass.config_entries.async_forward_entry_setup(entry, component)
-    #     )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     return True
 
-
 async def update_listener(hass, entry):
+    """Handle options update."""
     await hass.config_entries.async_reload(entry.entry_id)
 
-
 async def async_unload_entry(hass: core.HomeAssistant, entry: config_entries.ConfigEntry):
+    """Handle removal of an entry."""
     unload_ok = all(
         await asyncio.gather(
             *[
@@ -72,23 +70,29 @@ async def async_unload_entry(hass: core.HomeAssistant, entry: config_entries.Con
             ]
         )
     )
+    
+    # 清理数据
+    if unload_ok and DOMAIN in hass.data:
+        hass.data[DOMAIN].pop(entry.entry_id, None)
+        
     return unload_ok
 
+async def async_remove_entry(hass, entry):
+    """Handle removal of an entry."""
+    _LOGGER.info(f"删除设备: {entry.data.get('name')}")
+    if DOMAIN in hass.data and entry.entry_id in hass.data[DOMAIN]:
+        hass.data[DOMAIN].pop(entry.entry_id)
 
 class DEVICEDataUpdateCoordinator(DataUpdateCoordinator):
     """Class to manage fetching DEVICE data."""
 
     def __init__(self, hass, entry, ip, name, mac, status):
-        # 使用 update_interval 的代码
-
         self.hass = hass
         self.entry = entry
-
         self.ip = ip
         self.name = name
         self.mac = mac
         self.status = status
-
         self._isenable = True
 
         super().__init__(
@@ -99,7 +103,6 @@ class DEVICEDataUpdateCoordinator(DataUpdateCoordinator):
         )
 
     def set_device_enabled(self, enabled):
-        # 设置设备是否可用
         self._isenable = enabled
 
     async def _async_update_data(self):
