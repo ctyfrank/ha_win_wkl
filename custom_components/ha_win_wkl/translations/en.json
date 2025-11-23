@@ -9,11 +9,21 @@
                     "mac": "MAC地址",
                     "account": "登录账号(用以开机,暂未实现)"
                 }
+            },
+            "init": {
+                "description": "管理设备: {device_name}",
+                "data": {
+                    "remove_device": "删除此设备"
+                }
             }
         },
-        "error": {},
+        "error": {
+            "invalid_ip": "无效的IP地址格式",
+            "invalid_mac": "无效的MAC地址格式"
+        },
         "abort": {
-            "single_instance_allowed": "仅允许单个配置."
+            "single_instance_allowed": "仅允许单个配置.",
+            "device_removed": "设备已删除"
         }
     }
 }
